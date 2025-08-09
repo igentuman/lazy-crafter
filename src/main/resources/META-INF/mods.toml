@@ -9,7 +9,7 @@ logoFile="logo.png"
 credits=""
 authors="igentuman"
 description='''
-Oh it's so boring!
+Auto-craft nested recipes in Minecraft! Adds a button to the Recipe Book that automatically crafts intermediate ingredients when you don't have them directly in your inventory.
 '''
 
 [[dependencies.lazycrafter]]

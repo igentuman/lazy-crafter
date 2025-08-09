@@ -2,12 +2,13 @@
   "required": false,
   "package": "igentuman.lazycrafter.mixin",
   "compatibilityLevel": "JAVA_17",
-  "refmap": "nuclearcraft.refmap.json",
+  "refmap": "lazycrafter.refmap.json",
   "mixins": [
   ],
   "server": [
   ],
   "client": [
+    "RecipeBookComponentMixin"
   ],
   "minVersion": "0.8"
 }

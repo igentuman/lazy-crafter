@@ -1,0 +1,6 @@
+{
+  "gui.lazycrafter.auto_craft": "Auto Craft",
+  "gui.lazycrafter.auto_craft.tooltip": "Auto-craft %s with nested recipes",
+  "gui.lazycrafter.auto_craft.tooltip.generic": "Auto-craft this recipe using available materials",
+  "chat.lazycrafter.welcome": "Lazy Crafter mod loaded! Look for the auto-craft button in the Recipe Book."
+}
