@@ -1,0 +1,13 @@
+{
+  "required": false,
+  "package": "igentuman.lazycrafter.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "nuclearcraft.refmap.json",
+  "mixins": [
+  ],
+  "server": [
+  ],
+  "client": [
+  ],
+  "minVersion": "0.8"
+}
