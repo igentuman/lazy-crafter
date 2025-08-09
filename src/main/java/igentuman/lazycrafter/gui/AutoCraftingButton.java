@@ -24,7 +24,7 @@ public class AutoCraftingButton extends Button {
     private boolean visible = false;
     
     public AutoCraftingButton(int x, int y, RecipeBookComponent recipeBookComponent) {
-        super(x, y, 25, 18, Component.translatable("gui.lazycrafter.auto_craft"), 
+        super(x, y, 10, 10, Component.translatable("gui.lazycrafter.auto_craft"),
               button -> ((AutoCraftingButton) button).onPress(), DEFAULT_NARRATION);
         this.recipeBookComponent = recipeBookComponent;
     }
@@ -47,23 +47,55 @@ public class AutoCraftingButton extends Button {
     public void renderWidget(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         if (!visible) return;
         
-        RenderSystem.setShaderTexture(0, RECIPE_BUTTON_LOCATION);
+        // Determine button state colors
+        int backgroundColor, borderColor, iconColor;
         
-        // Determine button state
-        int textureY = 0;
         if (!active) {
-            textureY = 36; // Disabled state
+            backgroundColor = 0x80404040; // Disabled - dark gray
+            borderColor = 0x80606060;
+            iconColor = 0x80808080;
         } else if (isHoveredOrFocused()) {
-            textureY = 18; // Hovered state
+            backgroundColor = 0xC0004080; // Hovered - bright blue
+            borderColor = 0xFF0060C0;
+            iconColor = 0xFFFFFFFF;
+        } else {
+            backgroundColor = 0xA0003060; // Normal - darker blue
+            borderColor = 0xFF004080;
+            iconColor = 0xFFE0E0E0;
         }
         
-        // Render button background
-        guiGraphics.blit(RECIPE_BUTTON_LOCATION, getX(), getY(), 0, textureY, width, height);
+        // Render button background with rounded corners effect
+        guiGraphics.fill(getX(), getY(), getX() + width, getY() + height, backgroundColor);
         
-        // Render auto-craft icon (you might want to create a custom texture)
-        // For now, we'll use a simple overlay
-        if (active) {
-            guiGraphics.fill(getX() + 2, getY() + 2, getX() + width - 2, getY() + height - 2, 0x8000FF00);
+        // Render border
+        guiGraphics.fill(getX(), getY(), getX() + width, getY() + 1, borderColor); // Top
+        guiGraphics.fill(getX(), getY() + height - 1, getX() + width, getY() + height, borderColor); // Bottom
+        guiGraphics.fill(getX(), getY(), getX() + 1, getY() + height, borderColor); // Left
+        guiGraphics.fill(getX() + width - 1, getY(), getX() + width, getY() + height, borderColor); // Right
+        
+        // Render auto-craft icon - a stylized "A" for Auto
+        if (active || !active) { // Always show icon
+            int centerX = getX() + width / 2;
+            int centerY = getY() + height / 2;
+            
+            // Draw a simple "A" shape (smaller)
+            // Vertical lines
+            guiGraphics.fill(centerX - 2, centerY - 3, centerX - 1, centerY + 3, iconColor); // Left line
+            guiGraphics.fill(centerX + 1, centerY - 3, centerX + 2, centerY + 3, iconColor); // Right line
+            
+            // Top horizontal line
+            guiGraphics.fill(centerX - 1, centerY - 3, centerX + 1, centerY - 2, iconColor);
+            
+            // Middle horizontal line
+            guiGraphics.fill(centerX - 1, centerY, centerX + 1, centerY + 1, iconColor);
+        }
+        
+        // Add a subtle glow effect when hovered
+        if (isHoveredOrFocused() && active) {
+            guiGraphics.fill(getX() - 1, getY() - 1, getX() + width + 1, getY(), 0x40FFFFFF); // Top glow
+            guiGraphics.fill(getX() - 1, getY() + height, getX() + width + 1, getY() + height + 1, 0x40FFFFFF); // Bottom glow
+            guiGraphics.fill(getX() - 1, getY(), getX(), getY() + height, 0x40FFFFFF); // Left glow
+            guiGraphics.fill(getX() + width, getY(), getX() + width + 1, getY() + height, 0x40FFFFFF); // Right glow
         }
     }
     

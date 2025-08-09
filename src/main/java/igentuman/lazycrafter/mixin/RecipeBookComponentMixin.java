@@ -17,6 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import igentuman.lazycrafter.config.LazyCrafterConfig;
 import igentuman.lazycrafter.gui.AutoCraftingButton;
 import igentuman.lazycrafter.recipe.RecipeChecker;
+import igentuman.lazycrafter.LazyCrafter;
 
 /**
  * Mixin to add auto-crafting functionality to the Recipe Book
@@ -58,11 +59,41 @@ public class RecipeBookComponentMixin {
      */
     @Unique
     private void lazyCrafter$updateButtonPosition() {
-        if (lazyCrafter$autoCraftButton != null) {
-            // Use a fixed position relative to the screen with configurable offsets
-            // These values may need adjustment based on the actual GUI layout
-            int buttonX = 150 + LazyCrafterConfig.getButtonOffsetX();
-            int buttonY = 200 + LazyCrafterConfig.getButtonOffsetY();
+        if (lazyCrafter$autoCraftButton != null && minecraft.screen != null) {
+            // Try to get more accurate positioning based on screen type
+            int buttonX, buttonY;
+            
+            if (minecraft.screen instanceof net.minecraft.client.gui.screens.inventory.CraftingScreen craftingScreen) {
+                // Position relative to crafting screen
+                int guiLeft = (craftingScreen.width - 176) / 2; // Standard GUI width
+                int guiTop = (craftingScreen.height - 166) / 2; // Standard GUI height
+                
+                // Position next to the recipe book area
+                buttonX = guiLeft + 176 + 27 + LazyCrafterConfig.getButtonOffsetX(); // Right of the crafting GUI
+                buttonY = guiTop + 60 + LazyCrafterConfig.getButtonOffsetY(); // Near the top of recipe area
+                
+            } else if (minecraft.screen instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen inventoryScreen) {
+                // Position relative to inventory screen
+                int guiLeft = (inventoryScreen.width - 176) / 2;
+                int guiTop = (inventoryScreen.height - 166) / 2;
+                
+                // Position next to the recipe book area in inventory
+                buttonX = guiLeft + 176 + 45 + LazyCrafterConfig.getButtonOffsetX();
+                buttonY = guiTop + 60 + LazyCrafterConfig.getButtonOffsetY();
+                
+            } else {
+                // Fallback positioning for other screens
+                int screenWidth = minecraft.screen.width;
+                int screenHeight = minecraft.screen.height;
+                
+                buttonX = screenWidth / 2 + 100 + LazyCrafterConfig.getButtonOffsetX();
+                buttonY = screenHeight / 2 - 50 + LazyCrafterConfig.getButtonOffsetY();
+            }
+            
+            // Ensure button stays within screen bounds
+            buttonX = Math.max(0, Math.min(buttonX, minecraft.screen.width - 25));
+            buttonY = Math.max(0, Math.min(buttonY, minecraft.screen.height - 18));
+            
             lazyCrafter$autoCraftButton.setPosition(buttonX, buttonY);
         }
     }
@@ -127,7 +158,19 @@ public class RecipeBookComponentMixin {
     @Inject(method = "render", at = @At("TAIL"))
     private void lazyCrafter$render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
         if (lazyCrafter$autoCraftButton != null && lazyCrafter$autoCraftButton.isVisible()) {
+            // Update position before rendering in case layout changed
+            lazyCrafter$updateButtonPosition();
+            
+            // Render the button with proper z-ordering
+            guiGraphics.pose().pushPose();
+            guiGraphics.pose().translate(0, 0, 100); // Render on top
             lazyCrafter$autoCraftButton.render(guiGraphics, mouseX, mouseY, partialTick);
+            guiGraphics.pose().popPose();
+            
+            // Render tooltip separately to ensure it's on top
+            if (lazyCrafter$autoCraftButton.isHoveredOrFocused()) {
+                lazyCrafter$autoCraftButton.renderTooltip(guiGraphics, mouseX, mouseY);
+            }
         }
     }
     
@@ -159,5 +202,23 @@ public class RecipeBookComponentMixin {
     @Inject(method = "initFilterButtonTextures", at = @At("TAIL"))
     private void lazyCrafter$updateLayout(CallbackInfo ci) {
         lazyCrafter$updateButtonPosition();
+    }
+    
+    /**
+     * Update button position when the recipe book is resized or repositioned
+     */
+    @Inject(method = "updateScreenPosition", at = @At("TAIL"))
+    private void lazyCrafter$updateScreenPosition(int screenWidth, int screenHeight, CallbackInfo ci) {
+        lazyCrafter$updateButtonPosition();
+    }
+    
+    /**
+     * Hide button when recipe book is not visible
+     */
+    @Inject(method = "setVisible", at = @At("HEAD"))
+    private void lazyCrafter$setVisible(boolean visible, CallbackInfo ci) {
+        if (lazyCrafter$autoCraftButton != null && !visible) {
+            lazyCrafter$autoCraftButton.hide();
+        }
     }
 }
