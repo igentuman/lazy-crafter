@@ -14,6 +14,7 @@ public class LazyCrafterConfig {
     
     // Configuration values
     public static final ForgeConfigSpec.IntValue MAX_RECURSION_DEPTH;
+    public static final ForgeConfigSpec.IntValue COMPLEXITY_ANALYSIS_DEPTH;
     public static final ForgeConfigSpec.BooleanValue ENABLE_AUTO_CRAFTING;
     public static final ForgeConfigSpec.BooleanValue SHOW_TOOLTIPS;
     public static final ForgeConfigSpec.BooleanValue ENABLE_CACHING;
@@ -30,6 +31,10 @@ public class LazyCrafterConfig {
         MAX_RECURSION_DEPTH = BUILDER
             .comment("Maximum recursion depth for nested recipes (higher values may impact performance)")
             .defineInRange("maxRecursionDepth", 10, 1, 50);
+        
+        COMPLEXITY_ANALYSIS_DEPTH = BUILDER
+            .comment("Depth of complexity analysis for recipe selection (higher values provide better recipe selection but may impact performance)")
+            .defineInRange("complexityAnalysisDepth", 3, 1, 10);
         
         ENABLE_CACHING = BUILDER
             .comment("Enable recipe checking cache for better performance")
@@ -128,6 +133,17 @@ public class LazyCrafterConfig {
             return BUTTON_OFFSET_Y.get();
         } catch (Exception e) {
             return 0; // Default value
+        }
+    }
+    
+    /**
+     * Get complexity analysis depth
+     */
+    public static int getComplexityAnalysisDepth() {
+        try {
+            return COMPLEXITY_ANALYSIS_DEPTH.get();
+        } catch (Exception e) {
+            return 3; // Default value
         }
     }
 }
