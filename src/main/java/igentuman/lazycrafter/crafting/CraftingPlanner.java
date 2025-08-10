@@ -10,6 +10,8 @@ import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.resources.ResourceLocation;
 import igentuman.lazycrafter.LazyCrafter;
 import igentuman.lazycrafter.config.LazyCrafterConfig;
+import igentuman.lazycrafter.recipe.RecipeCache;
+import igentuman.lazycrafter.util.PerformanceMonitor;
 
 import java.util.*;
 
@@ -29,15 +31,46 @@ public class CraftingPlanner {
     public CraftingSequence planCrafting(CraftingRecipe targetRecipe, Inventory playerInventory) {
         CraftingSequence sequence = new CraftingSequence();
         Map<ItemStack, Integer> availableItems = getAvailableItems(playerInventory);
+        
+        // Try to use cached recipe chain if available
+        if (RecipeCache.getInstance().isCacheValid()) {
+            try (PerformanceMonitor.TimingContext timing = PerformanceMonitor.getInstance().startTiming("cache_lookup")) {
+                RecipeCache.RecipeChain cachedChain = RecipeCache.getInstance().getRecipeChain(targetRecipe.getId());
+                if (cachedChain != null && cachedChain.canBeCrafted()) {
+                    LazyCrafter.logger.debug("Using cached recipe chain for {}", targetRecipe.getId());
+                    
+                    // Check if we can actually craft with current inventory
+                    if (canCraftWithInventory(cachedChain, availableItems)) {
+                        // Build sequence from cached chain
+                        List<CraftingRecipe> craftingOrder = cachedChain.getCraftingOrder();
+                        for (int i = 0; i < craftingOrder.size(); i++) {
+                            sequence.addOperation(craftingOrder.get(i), 1, 100 - (i * 10));
+                        }
+                        
+                        PerformanceMonitor.getInstance().incrementCounter("cache_hits");
+                        LazyCrafter.logger.info("Successfully planned crafting sequence using cache with {} operations", sequence.size());
+                        return sequence;
+                    }
+                }
+                PerformanceMonitor.getInstance().incrementCounter("cache_misses");
+            }
+        }
+        
+        // Fall back to recursive planning if cache is not available or doesn't work
+        LazyCrafter.logger.debug("Using recursive planning for {}", targetRecipe.getId());
         Set<ResourceLocation> visitedRecipes = new HashSet<>();
         
-        if (planRecipeRecursive(targetRecipe, availableItems, sequence, visitedRecipes, 0, 100)) {
-            LazyCrafter.logger.info("Successfully planned crafting sequence with {} operations", sequence.size());
-            LazyCrafter.logger.debug("Crafting sequence: {}", sequence);
-            return sequence;
-        } else {
-            LazyCrafter.logger.warn("Failed to plan crafting sequence for recipe: {}", targetRecipe.getId());
-            return new CraftingSequence(); // Empty sequence
+        try (PerformanceMonitor.TimingContext timing = PerformanceMonitor.getInstance().startTiming("recursive_planning")) {
+            if (planRecipeRecursive(targetRecipe, availableItems, sequence, visitedRecipes, 0, 100)) {
+                PerformanceMonitor.getInstance().incrementCounter("recursive_planning_success");
+                LazyCrafter.logger.info("Successfully planned crafting sequence with {} operations", sequence.size());
+                LazyCrafter.logger.debug("Crafting sequence: {}", sequence);
+                return sequence;
+            } else {
+                PerformanceMonitor.getInstance().incrementCounter("recursive_planning_failure");
+                LazyCrafter.logger.warn("Failed to plan crafting sequence for recipe: {}", targetRecipe.getId());
+                return new CraftingSequence(); // Empty sequence
+            }
         }
     }
     
@@ -136,9 +169,89 @@ public class CraftingPlanner {
     }
     
     /**
+     * Check if we can craft a recipe chain with the current inventory
+     */
+    private boolean canCraftWithInventory(RecipeCache.RecipeChain chain, Map<ItemStack, Integer> availableItems) {
+        // Create a copy of available items to simulate consumption
+        Map<ItemStack, Integer> simulatedInventory = new HashMap<>();
+        for (Map.Entry<ItemStack, Integer> entry : availableItems.entrySet()) {
+            simulatedInventory.put(entry.getKey().copy(), entry.getValue());
+        }
+        
+        // Check each recipe in the crafting order
+        List<CraftingRecipe> craftingOrder = chain.getCraftingOrder();
+        for (CraftingRecipe recipe : craftingOrder) {
+            // Check if we can craft this recipe with current simulated inventory
+            boolean canCraftThis = true;
+            
+            for (Ingredient ingredient : recipe.getIngredients()) {
+                if (ingredient.isEmpty()) continue;
+                
+                boolean hasIngredient = false;
+                for (ItemStack acceptedItem : ingredient.getItems()) {
+                    if (hasEnoughItems(simulatedInventory, acceptedItem, 1)) {
+                        consumeItem(simulatedInventory, acceptedItem, 1);
+                        hasIngredient = true;
+                        break;
+                    }
+                }
+                
+                if (!hasIngredient) {
+                    canCraftThis = false;
+                    break;
+                }
+            }
+            
+            if (!canCraftThis) {
+                return false;
+            }
+            
+            // Add the result of this recipe to simulated inventory
+            try {
+                ItemStack result = recipe.getResultItem(Minecraft.getInstance().level.registryAccess());
+                addItem(simulatedInventory, result, result.getCount());
+            } catch (Exception e) {
+                LazyCrafter.logger.debug("Error getting result for recipe {}: {}", recipe.getId(), e.getMessage());
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
+    /**
      * Find the best recipe to craft an ingredient, considering available items
      */
     private CraftingRecipe findBestRecipeForIngredient(Ingredient ingredient, Set<ResourceLocation> currentPath, Map<ItemStack, Integer> availableItems) {
+        // Try to use cached recipes first if available
+        if (RecipeCache.getInstance().isCacheValid()) {
+            for (ItemStack targetItem : ingredient.getItems()) {
+                List<CraftingRecipe> cachedRecipes = RecipeCache.getInstance().getRecipesForItem(targetItem);
+                if (!cachedRecipes.isEmpty()) {
+                    // Filter out circular dependencies and known circular recipes, sort by cached complexity
+                    List<CraftingRecipe> validCachedRecipes = cachedRecipes.stream()
+                        .filter(recipe -> !currentPath.contains(recipe.getId()))
+                        .filter(recipe -> !RecipeCache.getInstance().isCircularRecipe(recipe.getId()))
+                        .sorted((r1, r2) -> {
+                            Integer complexity1 = RecipeCache.getInstance().getRecipeComplexity(r1.getId());
+                            Integer complexity2 = RecipeCache.getInstance().getRecipeComplexity(r2.getId());
+                            if (complexity1 != null && complexity2 != null) {
+                                return Integer.compare(complexity1, complexity2);
+                            }
+                            return 0;
+                        })
+                        .toList();
+                    
+                    if (!validCachedRecipes.isEmpty()) {
+                        LazyCrafter.logger.debug("Using cached recipe {} for ingredient {}", 
+                            validCachedRecipes.get(0).getId(), Arrays.toString(ingredient.getItems()));
+                        return validCachedRecipes.get(0);
+                    }
+                }
+            }
+        }
+        
+        // Fall back to full search if cache doesn't have what we need
         Collection<CraftingRecipe> recipes = recipeManager.getAllRecipesFor(RecipeType.CRAFTING);
         
         List<CraftingRecipe> validRecipes = new ArrayList<>();
@@ -150,8 +263,8 @@ public class CraftingPlanner {
                 try {
                     ItemStack result = recipe.getResultItem(Minecraft.getInstance().level.registryAccess());
                     if (ItemStack.isSameItem(result, targetItem)) {
-                        // Check if this recipe would create a circular dependency
-                        if (currentPath.contains(recipe.getId())) {
+                        // Check if this recipe would create a circular dependency or is known to be circular
+                        if (currentPath.contains(recipe.getId()) || RecipeCache.getInstance().isCircularRecipe(recipe.getId())) {
                             circularRecipes.add(recipe);
                             LazyCrafter.logger.debug("Skipping recipe {} due to circular dependency", recipe.getId());
                         } else {

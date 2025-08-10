@@ -18,6 +18,9 @@ public class LazyCrafterConfig {
     public static final ForgeConfigSpec.BooleanValue ENABLE_AUTO_CRAFTING;
     public static final ForgeConfigSpec.BooleanValue SHOW_TOOLTIPS;
     public static final ForgeConfigSpec.BooleanValue ENABLE_CACHING;
+    public static final ForgeConfigSpec.BooleanValue ENABLE_ASYNC_PROCESSING;
+    public static final ForgeConfigSpec.IntValue ASYNC_THREAD_COUNT;
+    public static final ForgeConfigSpec.IntValue CIRCULAR_DETECTION_DEPTH;
     public static final ForgeConfigSpec.IntValue BUTTON_OFFSET_X;
     public static final ForgeConfigSpec.IntValue BUTTON_OFFSET_Y;
     
@@ -39,6 +42,22 @@ public class LazyCrafterConfig {
         ENABLE_CACHING = BUILDER
             .comment("Enable recipe checking cache for better performance")
             .define("enableCaching", true);
+        
+        ENABLE_ASYNC_PROCESSING = BUILDER
+            .comment("Enable asynchronous recipe processing on world join (improves performance but uses more CPU)")
+            .define("enableAsyncProcessing", true);
+        
+        ASYNC_THREAD_COUNT = BUILDER
+            .comment("Number of threads to use for async recipe processing (0 = auto-detect)")
+            .defineInRange("asyncThreadCount", 0, 0, 16);
+        
+        BUILDER.push("Circular Recipe Detection");
+        
+        CIRCULAR_DETECTION_DEPTH = BUILDER
+            .comment("Maximum depth for circular recipe detection (higher = more thorough but slower)")
+            .defineInRange("circularDetectionDepth", 20, 5, 50);
+        
+        BUILDER.pop();
         
         BUILDER.pop();
         
@@ -144,6 +163,40 @@ public class LazyCrafterConfig {
             return COMPLEXITY_ANALYSIS_DEPTH.get();
         } catch (Exception e) {
             return 3; // Default value
+        }
+    }
+    
+    /**
+     * Check if async processing is enabled
+     */
+    public static boolean isAsyncProcessingEnabled() {
+        try {
+            return ENABLE_ASYNC_PROCESSING.get();
+        } catch (Exception e) {
+            return true; // Default value
+        }
+    }
+    
+    /**
+     * Get async thread count
+     */
+    public static int getAsyncThreadCount() {
+        try {
+            int count = ASYNC_THREAD_COUNT.get();
+            return count > 0 ? count : Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
+        } catch (Exception e) {
+            return Math.max(1, Runtime.getRuntime().availableProcessors() / 2); // Default value
+        }
+    }
+    
+    /**
+     * Get circular detection depth
+     */
+    public static int getCircularDetectionDepth() {
+        try {
+            return CIRCULAR_DETECTION_DEPTH.get();
+        } catch (Exception e) {
+            return 20; // Default value
         }
     }
 }
