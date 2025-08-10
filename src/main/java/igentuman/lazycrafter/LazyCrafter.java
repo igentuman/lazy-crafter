@@ -1,6 +1,7 @@
 package igentuman.lazycrafter;
 
 import igentuman.lazycrafter.config.LazyCrafterConfig;
+import igentuman.lazycrafter.integration.JEIIntegration;
 import igentuman.lazycrafter.recipe.AsyncRecipeProcessor;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
@@ -33,6 +34,9 @@ public class LazyCrafter
         
         if (FMLEnvironment.dist == Dist.CLIENT) {
             logger.info("Client-side initialization complete");
+            
+            // Initialize JEI integration
+            JEIIntegration.init();
             
             // Add shutdown hook for async processor cleanup
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {

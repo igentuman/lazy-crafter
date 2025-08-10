@@ -550,4 +550,19 @@ public class CraftingPlanner {
         }
         availableItems.put(item.copy(), amount);
     }
+    
+    /**
+     * Check if a recipe can be auto-crafted with the current inventory
+     * This is a lightweight check that doesn't create a full crafting sequence
+     */
+    public boolean canAutoCraft(CraftingRecipe recipe, Inventory playerInventory) {
+        try {
+            // Use the crafting planner to check if the recipe can be crafted
+            CraftingSequence sequence = planCrafting(recipe, playerInventory);
+            return !sequence.isEmpty();
+        } catch (Exception e) {
+            LazyCrafter.logger.debug("Error checking auto-craft possibility: {}", e.getMessage());
+            return false;
+        }
+    }
 }

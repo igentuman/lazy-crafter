@@ -2,5 +2,10 @@
   "gui.lazycrafter.auto_craft": "Auto Craft",
   "gui.lazycrafter.auto_craft.tooltip": "Just craft it already",
   "gui.lazycrafter.auto_craft.tooltip.generic": "Auto-craft this recipe using available materials",
+  "gui.lazycrafter.jei.auto_craft.tooltip": "Auto-craft %s using available materials",
+  "gui.lazycrafter.jei.auto_craft.tooltip.generic": "Auto-craft this recipe using available materials",
+  "gui.lazycrafter.jei.transfer.error.unsupported_container": "Auto-crafting not supported in this container",
+  "gui.lazycrafter.jei.transfer.error.cannot_autocraft": "Cannot auto-craft this recipe with current materials",
+  "gui.lazycrafter.jei.transfer.error.execution_failed": "Auto-crafting failed to execute",
   "chat.lazycrafter.welcome": "Lazy Crafter mod loaded! Look for the auto-craft button in the Recipe Book."
 }
